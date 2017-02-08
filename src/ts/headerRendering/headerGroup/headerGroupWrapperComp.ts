@@ -10,9 +10,8 @@ import {Autowired, PostConstruct, Context} from "../../context/context";
 import {CssClassApplier} from "../cssClassApplier";
 import {DragSource, DropTarget, DragAndDropService, DragSourceType} from "../../dragAndDrop/dragAndDropService";
 import {SetLeftFeature} from "../../rendering/features/setLeftFeature";
-import {HeaderGroupComp, IHeaderGroupComp, IHeaderGroupParams} from "./headerGroupComp";
+import {IHeaderGroupParams} from "./headerGroupComp";
 import {IComponent} from "../../interfaces/iComponent";
-import {ColGroupDef} from "../../entities/colDef";
 import {ComponentProvider} from "../../componentProvider";
 
 export class HeaderGroupWrapperComp extends Component {
@@ -63,9 +62,7 @@ export class HeaderGroupWrapperComp extends Component {
         this.setupMove(displayName);
         this.setupWidth();
 
-        var setLeftFeature = new SetLeftFeature(this.columnGroup, this.getGui());
-        this.context.wireBean(setLeftFeature);
-        this.addDestroyFunc( () => setLeftFeature.destroy() );
+        this.addFeature(this.context, new SetLeftFeature(this.columnGroup, this.getGui()));
     }
 
     private appendHeaderGroupComp(displayName: string): IComponent<IHeaderGroupParams> {

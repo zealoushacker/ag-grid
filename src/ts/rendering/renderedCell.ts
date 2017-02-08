@@ -22,7 +22,7 @@ import {ICellEditorComp, ICellEditorParams} from "./cellEditors/iCellEditor";
 import {CellEditorFactory} from "./cellEditorFactory";
 import {Component} from "../widgets/component";
 import {PopupService} from "../widgets/popupService";
-import {ICellRenderer, ICellRendererFunc, ICellRendererComp} from "./cellRenderers/iCellRenderer";
+import {ICellRenderer, ICellRendererFunc, ICellRendererComp, ICellRendererParams} from "./cellRenderers/iCellRenderer";
 import {CellRendererFactory} from "./cellRendererFactory";
 import {CellRendererService} from "./cellRendererService";
 import {ValueFormatterService} from "./valueFormatterService";
@@ -86,7 +86,7 @@ export class RenderedCell extends Component {
     private cellRenderer: ICellRendererComp;
 
     private value: any;
-    private checkboxSelection: boolean;
+    private usingWrapper: boolean;
     private renderedRow: RenderedRow;
 
     private firstRightPinned = false;
@@ -190,33 +190,20 @@ export class RenderedCell extends Component {
         this.eParentRow = eParentRow;
     }
 
-    public calculateCheckboxSelection(): boolean {
+    public setupCheckboxSelection(): void {
+        // if boolean set, then just use it
+        let colDef = this.column.getColDef();
+
         // never allow selection on floating rows
         if (this.node.floating) {
-            return false;
+            this.usingWrapper = false;
+        } else if (typeof colDef.checkboxSelection === 'boolean') {
+            this.usingWrapper = <boolean> colDef.checkboxSelection;
+        } else if (typeof colDef.checkboxSelection === 'function') {
+            this.usingWrapper = true;
+        } else {
+            this.usingWrapper = false;
         }
-
-        // if boolean set, then just use it
-        var colDef = this.column.getColDef();
-        if (typeof colDef.checkboxSelection === 'boolean') {
-            return <boolean> colDef.checkboxSelection;
-        }
-
-        // if function, then call the function to find out. we first check colDef for
-        // a function, and if missing then check gridOptions, so colDef has precedence
-        var selectionFunc: (params: any)=>boolean;
-        if (typeof colDef.checkboxSelection === 'function') {
-            selectionFunc = <(params: any)=>boolean> colDef.checkboxSelection;
-        }
-        if (!selectionFunc && this.gridOptionsWrapper.getCheckboxSelection()) {
-            selectionFunc = this.gridOptionsWrapper.getCheckboxSelection();
-        }
-        if (selectionFunc) {
-            var params = this.createParams();
-            return selectionFunc(params);
-        }
-
-        return false;
     }
 
     public getColumn(): Column {
@@ -375,7 +362,8 @@ export class RenderedCell extends Component {
     @PostConstruct
     public init(): void {
         this.value = this.getValue();
-        this.checkboxSelection = this.calculateCheckboxSelection();
+
+        this.setupCheckboxSelection();
 
         this.setWidthOnCell();
         this.setPinnedClasses();
@@ -388,10 +376,7 @@ export class RenderedCell extends Component {
         this.addDomData();
 
         // this.addSuppressShortcutKeyListenersWhileEditing();
-
-        var setLeftFeature = new SetLeftFeature(this.column, this.eGridCell);
-        this.context.wireBean(setLeftFeature);
-        this.addDestroyFunc(setLeftFeature.destroy.bind(setLeftFeature));
+        this.addFeature(this.context, new SetLeftFeature(this.column, this.eGridCell));
 
         // only set tab index if cell selection is enabled
         if (!this.gridOptionsWrapper.isSuppressCellSelection()) {
@@ -732,7 +717,7 @@ export class RenderedCell extends Component {
         } else {
             _.removeAllChildren(this.eGridCell);
             // put the cell back the way it was before editing
-            if (this.checkboxSelection) {
+            if (this.usingWrapper) {
                 // if wrapper, then put the wrapper back
                 this.eGridCell.appendChild(this.eCellWrapper);
             } else {
@@ -968,16 +953,19 @@ export class RenderedCell extends Component {
         );
     }
 
-
     private createParentOfValue() {
-        if (this.checkboxSelection) {
+        if (this.usingWrapper) {
             this.eCellWrapper = document.createElement('span');
             _.addCssClass(this.eCellWrapper, 'ag-cell-wrapper');
             this.eGridCell.appendChild(this.eCellWrapper);
 
             var cbSelectionComponent = new CheckboxSelectionComponent();
             this.context.wireBean(cbSelectionComponent);
-            cbSelectionComponent.init({rowNode: this.node});
+
+            let visibleFunc = this.column.getColDef().checkboxSelection;
+            visibleFunc = typeof visibleFunc === 'function' ? visibleFunc : null;
+
+            cbSelectionComponent.init({rowNode: this.node, column: this.column, visibleFunc: visibleFunc});
             this.addDestroyFunc( ()=> cbSelectionComponent.destroy() );
 
             // eventually we call eSpanWithValue.innerHTML = xxx, so cannot include the checkbox (above) in this span
@@ -1138,8 +1126,8 @@ export class RenderedCell extends Component {
         return this.valueFormatterService.formatValue(this.column, this.node, this.scope, this.gridCell.rowIndex, value);
     }
 
-    private createRendererAndRefreshParams(valueFormatted: string, cellRendererParams: {}): any {
-        var params = {
+    private createRendererAndRefreshParams(valueFormatted: string, cellRendererParams: {}): ICellRendererParams {
+        var params = <ICellRendererParams> {
             value: this.value,
             valueFormatted: valueFormatted,
             valueGetter: this.getValue,

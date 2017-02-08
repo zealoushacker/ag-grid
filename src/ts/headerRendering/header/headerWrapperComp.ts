@@ -16,17 +16,15 @@ import {SortController} from "../../sortController";
 import {EventService} from "../../eventService";
 import {ComponentProvider} from "../../componentProvider";
 import {AgCheckbox} from "../../widgets/agCheckbox";
-import {IRowModel} from "../../interfaces/iRowModel";
-import {Constants} from "../../constants";
-import {InMemoryRowModel} from "../../rowControllers/inMemory/inMemoryRowModel";
-import {QuerySelector, RefSelector} from "../../widgets/componentAnnotations";
-import {RowNode} from "../../entities/rowNode";
+import {RefSelector} from "../../widgets/componentAnnotations";
+import {SelectAllFeature} from "./selectAllFeature";
 
 export class HeaderWrapperComp extends Component {
 
     private static TEMPLATE =
         '<div class="ag-header-cell">' +
           '<div ref="eResize" class="ag-header-cell-resize"></div>' +
+          '<ag-checkbox ref="cbSelectAll" class="ag-header-select-all"></ag-checkbox>' +
             // <inner component goes here>
         '</div>';
 
@@ -40,9 +38,9 @@ export class HeaderWrapperComp extends Component {
     @Autowired('sortController') private sortController: SortController;
     @Autowired('eventService') private eventService: EventService;
     @Autowired('componentProvider') private componentProvider: ComponentProvider;
-    @Autowired('rowModel') private rowModel: IRowModel;
 
-    @RefSelector('eResize') private eResize:  HTMLElement;
+    @RefSelector('eResize') private eResize: HTMLElement;
+    @RefSelector('cbSelectAll') private cbSelectAll: AgCheckbox;
 
     private column: Column;
     private eRoot: HTMLElement;
@@ -65,13 +63,11 @@ export class HeaderWrapperComp extends Component {
 
     @PostConstruct
     public init(): void {
-        let displayName = this.columnController.getDisplayNameForColumn(this.column, 'header', true);
+        this.instantiate(this.context);
 
+        let displayName = this.columnController.getDisplayNameForColumn(this.column, 'header', true);
         let enableSorting = this.gridOptionsWrapper.isEnableSorting() && !this.column.getColDef().suppressSorting;
         let enableMenu = this.menuFactory.isMenuEnabled(this.column) && !this.column.getColDef().suppressMenu;
-
-        // do this before adding headerComp, as it needs to be put in first
-        // this.setupSelectAllCheckbox();
 
         let headerComp = this.appendHeaderComp(displayName, enableSorting, enableMenu);
 
@@ -85,39 +81,12 @@ export class HeaderWrapperComp extends Component {
         this.addDestroyableEventListener(this.column, Column.EVENT_FILTER_CHANGED, this.onFilterChanged.bind(this));
         this.onFilterChanged();
 
-        var setLeftFeature = new SetLeftFeature(this.column, this.getGui());
-        this.context.wireBean(setLeftFeature);
-        this.addDestroyFunc( ()=> setLeftFeature.destroy() );
+        this.addFeature(this.context, new SetLeftFeature(this.column, this.getGui()));
+        this.addFeature(this.context, new SelectAllFeature(this.cbSelectAll, this.column));
 
         this.addAttributes();
         CssClassApplier.addHeaderClassesFromColDef(this.column.getColDef(), this.getGui(), this.gridOptionsWrapper, this.column, null);
     }
-
-/*    private setupSelectAllCheckbox(): void {
-
-        if (!this.column.getColDef().selectAllCheckbox) {
-            return;
-        }
-
-        let rowModelType = this.rowModel.getType();
-        let inMemoryRowModel: InMemoryRowModel;
-
-        if (rowModelType===Constants.ROW_MODEL_TYPE_NORMAL || Constants.ROW_MODEL_TYPE_PAGINATION) {
-            inMemoryRowModel = <InMemoryRowModel> this.rowModel;
-        } else {
-            return;
-        }
-
-        let selectAllCheckbox = new AgCheckbox();
-        this.context.wireBean(selectAllCheckbox);
-        selectAllCheckbox.addCssClass('ag-header-select-all');
-        this.appendChild(selectAllCheckbox);
-
-        let rootNode = inMemoryRowModel.getRootNode();
-        this.addDestroyableEventListener(rootNode, RowNode.EVENT_ROW_SELECTED, ()=> {
-            console.log('changed ' + rootNode.isSelected());
-        });
-    }*/
 
     private setupSortableClass(enableSorting:boolean):void{
         if (enableSorting) {

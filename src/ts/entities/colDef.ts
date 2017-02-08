@@ -36,7 +36,9 @@ export interface ColGroupDef extends AbstractColDef {
     /** If true, group cannot be broken up by column moving, child columns will always appear side by side, however you can rearrange child columns within the group */
     marryChildren?: boolean;
     /** The custom header group component to be used for rendering the component header. If none specified the default ag-Grid is used**/
-    headerGroupComponent?:{new(): IHeaderGroupComp}
+    headerGroupComponent?: {new(): IHeaderGroupComp};
+    /** The custom header group component to be used for rendering the component header. If none specified the default ag-Grid is used**/
+    headerGroupComponentParams?: any;
 }
 
 export interface IAggFunc {
@@ -141,6 +143,12 @@ export interface ColDef extends AbstractColDef {
     /** Set to true to render a selection checkbox in the column. */
     checkboxSelection?: boolean | ((params: any)=>boolean);
 
+    /** If true, a 'select all' checkbox will be put into the header */
+    headerCheckboxSelection?: boolean | ((params: any)=>boolean);
+
+    /** If true, the header checkbox selection will work on filtered items*/
+    headerCheckboxSelectionFilteredOnly?: boolean;
+
     /** Set to true if no menu should be shown for this column header. */
     suppressMenu?: boolean;
 
@@ -233,9 +241,6 @@ export interface ColDef extends AbstractColDef {
     headerComponentFramework?: {new (): any};
     /** The custom header component parameters**/
     headerComponentParams?:any
-
-    /** If true, a 'select all' checkbox will be put into the header */
-    selectAllCheckbox?: boolean;
 }
 
 export interface IsColumnFunc {
