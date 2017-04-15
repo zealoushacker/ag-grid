@@ -726,6 +726,11 @@ var RenderedCell = (function (_super) {
         }
     };
     RenderedCell.prototype.onMouseDown = function () {
+        var elClassList = event.target.classList;
+        if (elClassList.contains('checkbox')) {
+            event.stopPropagation();
+            return;
+        }
         // we pass false to focusCell, as we don't want the cell to focus
         // also get the browser focus. if we did, then the cellRenderer could
         // have a text field in it, for example, and as the user clicks on the
